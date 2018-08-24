@@ -1,0 +1,26 @@
+{
+  "name": "385grader",
+  "version": "1.0.0",
+  "description": "to automatically grade assignments consistently for stevens cs385",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "keywords": [
+    "auto",
+    "grading",
+    "docker",
+    "js",
+    "instructure",
+    "canvas"
+  ],
+  "author": "Jonathan Pavlik",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "canvas-api": "^3.6.0",
+    "form-data": "^2.3.2",
+    "rimraf": "^2.6.2",
+    "unzip": "^0.1.11"
+  }
+}
