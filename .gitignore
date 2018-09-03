@@ -1,2 +1,5 @@
 node_modules
+<<<<<<< a2e735d6e1b103c9ce97d2595aa32951cd806a9d
 .env
+=======
+>>>>>>> removing node_modules
