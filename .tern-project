@@ -7,10 +7,17 @@
     "."
   ],
   "dontLoad": [
+<<<<<<< HEAD
+    "node_modules/**",
+  ],
+  "plugins": {
+    "es_modules": {},
+=======
     "node_modules/**"
   ],
   "plugins": {
     "es_moduXFles": {},
+>>>>>>> a2e735d6e1b103c9ce97d2595aa32951cd806a9d
     "node": {},
     "doc_comment": {
       "fullDocs": true,
