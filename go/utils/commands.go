@@ -4,9 +4,28 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
+
+func CreateTempDir() string {
+	cwd, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	tempDir := filepath.Join(cwd, "temp")
+
+	err = os.Mkdir(tempDir, 0777)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	return tempDir
+}
 
 func Unzip(filepath, dest string) {
 	cmd := exec.Command("unzip", filepath, "-d", dest)
@@ -88,11 +107,13 @@ func FindFolders(filepath string) []string {
 	}
 
 	var ret []string
-	if string(out) == "" {
+	str := string(out)
+	if str == "" {
 		return ret
 	}
 
-	return strings.Split(string(out), "\n")
+	ret = strings.Split(str, "\n")
+	return ret[:len(ret)-1]
 }
 
 func FindFileType(filepath, ftype, to string) []string {
@@ -104,11 +125,13 @@ func FindFileType(filepath, ftype, to string) []string {
 	}
 
 	var ret []string
-	if string(out) == "" {
+	str := string(out)
+	if str == "" {
 		return ret
 	}
 
-	return strings.Split(string(out), "\n")
+	ret = strings.Split(str, "\n")
+	return ret[:len(ret)-1]
 }
 
 func Rm(filepath string) {

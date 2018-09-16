@@ -1,7 +1,7 @@
 package canvas
 
 import (
-	//"bytes"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	//"strconv"
 
 	"385grader/utils"
 )
@@ -19,7 +18,7 @@ import (
 func countNumTests(filepath string) int {
 	reg := regexp.MustCompile("run_test")
 	matches := reg.FindAllStringIndex(utils.Cat(filepath), -1)
-	
+
 	return len(matches)
 }
 
@@ -45,7 +44,7 @@ func (s *assignmentSubmission) getName() []string {
 
 	name := strings.Split(person.Name, " ")
 	name[0], name[1] = strings.ToLower(name[0]), strings.ToLower(name[1])
-	
+
 	return name
 }
 
@@ -57,17 +56,17 @@ func (s *assignmentSubmission) nameAndPledge(filepath string) (float64, string) 
 	var comment strings.Builder
 	name := s.getName()
 
-	reg_name := regexp.MustCompile(fmt.Sprintf("(%s | %s)", name[0], name[1]))
+	reg_name := regexp.MustCompile(fmt.Sprintf("[^a-z1-9]?(%s|%s)[^a-z1-9]?", name[0], name[1]))
 	matches := reg_name.FindAllStringIndex(head, -1)
-	
+
 	if len(matches) == 0 {
 		score += 5
 		comment.WriteString(fmt.Sprintf("%s or %s not found in header comments -5.", name[0], name[1]))
 	}
 
-	reg_pledge := regexp.MustCompile("i pledge my honor that i have abided by the stevens honor system")
+	reg_pledge := regexp.MustCompile("[^a-z1-9]?i pledge my honor that i have abided by the steven(')?s honor system[^a-z1-9]?")
 	matches = reg_pledge.FindAllStringIndex(head, -1)
-	
+
 	if len(matches) == 0 {
 		score += 5
 		comment.WriteString("Pledge not found/spelt wrong in header comments -5.")
@@ -123,97 +122,93 @@ func secondsToHours(seconds int) float64 {
 	return hours
 }
 
-type com struct {
-	Text_comment string `json:"text_comment"`
-}
-type sub struct {
-	Posted_grade string `json:"posted_grade"`
-}
+func checkFolderStructure(fp string) float64 {
+	toMove := utils.FindFolders(fp)
+	toMove = utils.FilterStringSlice(toMove, func(item string) bool {
+		if strings.Contains(item, "__MACOSX") {
+			return false
+		}
+		return true
+	})
 
-type grade struct {
-	Comment    com `json:"comment"`
-	Submission sub `json:"submission"`
-}
-
-func (s *assignmentSubmission) GradeAndComment(fp, zippath, testpath string) {
-	utils.Unzip(zippath, fp)
-	utils.Cp(testpath, fp)
-	utils.Cd(fp)
-
-	var incorrect_structure float64 = 5
-	to_move := utils.FindFolders(fp)
-	if len(to_move) == 0 {
-		incorrect_structure = 0
+	if len(toMove) == 0 {
+		return 0
 	}
-	for _, folder := range to_move {
+
+	for _, folder := range toMove {
 		reg := regexp.MustCompile(" ")
 		folder = reg.ReplaceAllLiteralString(folder, "\\ ")
 
-		_, fold := filepath.Split(folder)
-		if fold == "__MACOSX" {
-			if len(to_move) == 1 {
-				incorrect_structure = 0
-			}
-			continue
-		}
-
-		fmt.Println(folder)
 		utils.Mv(filepath.Join(folder, "*.cpp"), fp)
 		utils.Mv(filepath.Join(folder, "*.h"), fp)
 		utils.Mv(filepath.Join(folder, "makefile"), fp)
 		utils.Mv(filepath.Join(folder, "Makefile"), fp)
-		
+
 		os.RemoveAll(folder)
 	}
 
-	var score float64 = 0
-	var comment string
-	
-	if _, err := os.Stat(filepath.Join(fp, "student.cpp")); err == nil {
-		results := utils.RunBashScript("test_student.sh", 30)
-		entrypoint := filepath.Join(fp, "student.cpp")
-		score, comment = s.analyzeTestResults(entrypoint, results, countNumTests(testpath))
-		if incorrect_structure > 0 {
-			score -= incorrect_structure
-			if comment == "Good Job!" {
-				comment = "Incorrect folder structure -5."
-			} else {
-				comment += "\nIncorrect folder structure -5."
-			}
-		}
-		// data := map[string]interface{}{
-		// 	"comment": map[string]string{
-		// 		"text_comment": comment,
-		// 	},
-		// 	"submission": map[string]string{
-		// 		"posted_grade": fmt.Sprintf("%d", int(score)),
-		// 	},
-		// }
-		// js, err := json.Marshal(data)
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	os.Exit(1)
-		// }
-		// client := &http.Client{}
+	return 5
+}
 
-		// req, err := http.NewRequest(http.MethodPut, s.GradeUrl, bytes.NewBuffer(js))
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	os.Exit(1)
-		// }
-		// req.Header.Set("Content-Type", "application/json")
-		// resp, err := client.Do(req)
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	os.Exit(1)
-		// }
-		// fmt.Println(resp)
-	} else {
-		comment = "Incorrectly named file, did not compile."
+func postGrade(gradeUrl, comment string, score float64) {
+	fmt.Println(gradeUrl)
+	data := grade{
+		Comment: com{
+			TextComment: comment,
+		},
+		Submission: sub{
+			PostedGrade: fmt.Sprintf("%d", int(score)),
+		},
 	}
-	fmt.Println(score, comment)
+	js, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodPut, gradeUrl, bytes.NewBuffer(js))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	//fmt.Println(resp)
+}
+
+func (s *assignmentSubmission) GradeAndComment(fp, zippath, testpath, entrypoint string, timeout int, post bool) {
+	utils.Unzip(zippath, fp)
+	utils.Cp(testpath, fp)
+	utils.Cd(fp)
+
+	var score float64 = 0
+	var incorrectStructure = checkFolderStructure(fp)
+	var comment string
+
+	_, testName := filepath.Split(testpath)
+
+	results := utils.RunBashScript(testName, timeout)
+	entrypoint = filepath.Join(fp, entrypoint)
+	score, comment = s.analyzeTestResults(entrypoint, results, countNumTests(testpath))
+
+	if incorrectStructure > 0 {
+		if score == 100 {
+			comment = "Incorrect folder structure -5."
+		} else {
+			comment += "\nIncorrect folder structure -5."
+		}
+		score -= incorrectStructure
+	}
+
+	if post {
+		postGrade(s.GradeUrl, comment, score)
+	}
+	//fmt.Println(score, comment)
 
 	utils.Cd("..")
-
-	//fmt.Println(s.GradeUrl)
 }

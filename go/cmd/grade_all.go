@@ -12,17 +12,19 @@ var gradeAllCmd = &cobra.Command{
 	Long:    "Grades the latest submission of each person who has submitted, generates comments and grades automatically on canvas.",
 	PreRunE: defaultArgCheck,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token := cmd.Flag("ctoken").Value.String()
+		token := cmd.Flag("token").Value.String()
 		cid := cmd.Flag("cid").Value.String()
 		aid := cmd.Flag("aid").Value.String()
-		testscript := cmd.Flag("test_script").Value.String()
-		
+		testScript := cmd.Flag("test_script").Value.String()
+		entrypoint := cmd.Flag("entrypoint").Value.String()
+
 		subs := canvas.FetchAllAssignmentUrls(cid, aid, token)
-		canvas.GradeAllSubmissions(testscript, subs)
+		canvas.GradeAllSubmissions(entrypoint, testScript, subs, timeOut, post)
 		return nil
 	},
 }
 
 func init() {
+	defaultFlags(gradeAllCmd)
 	rootCmd.AddCommand(gradeAllCmd)
 }

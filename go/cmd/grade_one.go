@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"385grader/canvas"
 )
 
 var gradeOneCmd = &cobra.Command{
@@ -12,15 +13,8 @@ var gradeOneCmd = &cobra.Command{
 	Short: "Grades a user's submitted assignment.",
 	Long:  "Grades the latest submission of a specific person who has submitted, generates comments and grades automatically on canvas.",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		if cmd.Flag("ctoken").Value.String() == "" {
-			return errors.New("The argument ctoken is required")
-		}
-		if cmd.Flag("cid").Value.String() == "" {
-			return errors.New("The argument cid is required")
-		}
-
-		if cmd.Flag("aid").Value.String() == "" {
-			return errors.New("The argument aid is required")
+		if err := defaultArgCheck(cmd, args); err != nil {
+			return err
 		}
 
 		if cmd.Flag("uid").Value.String() == "" {
@@ -30,12 +24,21 @@ var gradeOneCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("%s, %s, %s", cmd.Flag("ctoken").Value.String(), cmd.Flag("cid").Value.String(), cmd.Flag("aid").Value.String())
+		token := cmd.Flag("token").Value.String()
+		cid := cmd.Flag("cid").Value.String()
+		aid := cmd.Flag("aid").Value.String()
+		uid := cmd.Flag("uid").Value.String()
+		testScript := cmd.Flag("test_script").Value.String()
+		entrypoint := cmd.Flag("entrypoint").Value.String()
+
+		sub := canvas.FetchOne(cid, aid, uid, token)
+		canvas.GradeOneSubmission(entrypoint, testScript, sub, timeOut, post)
 	},
 }
 
 func init() {
-	gradeOneCmd.PersistentFlags().String("uid", "", "Canvas User ID.")
+	defaultFlags(gradeOneCmd)
+	gradeOneCmd.PersistentFlags().StringP("uid", "u", "", "Canvas User ID.")
 
 	rootCmd.AddCommand(gradeOneCmd)
 }
