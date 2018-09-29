@@ -11,18 +11,12 @@ import (
 
 func CreateTempDir() string {
 	cwd, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Failed to create temp directory path.", true)
 
 	tempDir := filepath.Join(cwd, "temp")
 
 	err = os.Mkdir(tempDir, 0777)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Failed to create temp directory.", true)
 
 	return tempDir
 }
@@ -30,54 +24,36 @@ func CreateTempDir() string {
 func Unzip(filepath, dest string) {
 	cmd := exec.Command("unzip", filepath, "-d", dest)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err, string(out))
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
 func Make(filepath string) {
 	cmd := exec.Command("make", "-C", filepath)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	out, err := cmd.CombinedOutput()
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
 func MakeClean(filepath string) {
 	cmd := exec.Command("make", "clean", "-C", filepath)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	out, err := cmd.CombinedOutput()
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
 func Cp(from, to string) {
 	cmd := exec.Command("cp", from, to)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	out, err := cmd.CombinedOutput()
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
 func Cd(filepath string) {
 	err := os.Chdir(filepath)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Failed to change directory.", true)
 }
 
 func Mv(from, to string) {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("mv %s %s; 2>/dev/null", from, to))
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err, ":", string(out))
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	//fmt.Println(out)
 }
@@ -85,9 +61,7 @@ func Mv(from, to string) {
 func RunBashScript(filepath string, timeout int) string {
 	cmd := exec.Command("bash", filepath)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "Failure"
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	var timer *time.Timer
 	timer = time.AfterFunc(time.Duration(timeout)*time.Second, func() {
@@ -101,10 +75,7 @@ func RunBashScript(filepath string, timeout int) string {
 func FindFolders(filepath string) []string {
 	cmd := exec.Command("find", filepath, "-maxdepth", "1", "!", "-path", filepath, "-type", "d")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	var ret []string
 	str := string(out)
@@ -119,10 +90,7 @@ func FindFolders(filepath string) []string {
 func FindFileType(filepath, ftype, to string) []string {
 	cmd := exec.Command("/usr/bin/find", filepath, "-name", ftype, "-exec", "cat", "{}", "\\;")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err, " : ", string(out))
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	var ret []string
 	str := string(out)
@@ -136,20 +104,14 @@ func FindFileType(filepath, ftype, to string) []string {
 
 func Rm(filepath string) {
 	cmd := exec.Command("rm", "-rf", filepath)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	out, err := cmd.CombinedOutput()
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
 func Cat(filepath string) string {
 	cmd := exec.Command("cat", filepath)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	return string(out)
 }
@@ -157,10 +119,7 @@ func Cat(filepath string) string {
 func Head(filepath string, numlines int) string {
 	cmd := exec.Command("head", fmt.Sprintf("-%d", numlines), filepath)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
 	return string(out)
 }

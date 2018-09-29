@@ -5,15 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"385grader/utils"
 )
-
-type test struct {
-	Link string `json:"link"`
-}
 
 func FetchAllAssignmentUrls(courseID, assignmentID, token string) (subs []*assignmentSubmission) {
 	page, page_num := true, 1
@@ -23,24 +17,16 @@ func FetchAllAssignmentUrls(courseID, assignmentID, token string) (subs []*assig
 		cur_url := fmt.Sprintf("%s&page=%d", url, page_num)
 
 		resp, err := http.Get(cur_url)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		utils.HandleError(err, "Get request failed. Did API change or network failure or is there service down.", true)
 		defer resp.Body.Close()
 
 		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		utils.HandleError(err, "Could not parse request data, did API schema change?", true)
 
 		var submissions []submission
 
-		if err = json.Unmarshal(body, &submissions); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		err = json.Unmarshal(body, &submissions)
+		utils.HandleError(err, "Failed to unpack values to struct.", true)
 
 		if len(submissions) < 100 {
 			page = false
@@ -70,56 +56,20 @@ func FetchAllAssignmentUrls(courseID, assignmentID, token string) (subs []*assig
 	return
 }
 
-func GradeAllSubmissions(entrypoint, testscript string, subs []*assignmentSubmission, timeout int, post bool) {
-	tempDir := utils.CreateTempDir()
-
-	var fp string
-
-	for _, sub := range subs {
-		//fmt.Println(sub.UserID)
-		fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
-
-		utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
-		sub.GradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post)
-
-		// if sub.UserID == 22855 {
-		// 	os.Exit(1)
-		// }
-
-		os.RemoveAll(tempDir)
-
-		err := os.Mkdir(tempDir, 0777)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
-
-	os.RemoveAll(tempDir)
-}
-
 func FetchOne(courseID, assignmentID, userID, token string) *assignmentSubmission {
 	url := fmt.Sprintf(FETCH_ONE_ASSIGNMENT, CANVAS_API_DOMAIN, API_VERSION, courseID, assignmentID, userID, token)
 
 	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Get request failed. Did API change or network failure or is there service down.", true)
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Could not parse request data, did API schema change?", true)
 
 	var sub submission
 
-	if err = json.Unmarshal(body, &sub); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	err = json.Unmarshal(body, &sub)
+	utils.HandleError(err, "Failed to unpack values to struct.", true)
 
 	var latest attachment
 
@@ -137,17 +87,4 @@ func FetchOne(courseID, assignmentID, userID, token string) *assignmentSubmissio
 		GradeUrl:             fmt.Sprintf(GRADE_ONE, CANVAS_API_DOMAIN, API_VERSION, courseID, assignmentID, sub.UserID, token),
 		NameUrl:              fmt.Sprintf(LOOK_UP_STUDENT, CANVAS_API_DOMAIN, API_VERSION, courseID, sub.UserID, token),
 	}
-}
-
-func GradeOneSubmission(entrypoint, testscript string, sub *assignmentSubmission, timeout int, post bool) {
-	tempDir := utils.CreateTempDir()
-
-	var fp string
-
-	fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
-
-	utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
-	sub.GradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post)
-
-	os.RemoveAll(tempDir)
 }

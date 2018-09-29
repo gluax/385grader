@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -9,21 +8,12 @@ import (
 
 func DownloadFileFromUrl(url, file string) {
 	out, err := os.Create(file)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Could not create file to write to.", true)
 
 	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Get request failed. Did API change or network failure or is there service down.", true)
 	defer resp.Body.Close()
 
 	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	HandleError(err, "Could not copy data from request to file.", true)
 }

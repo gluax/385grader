@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 
+	"385grader/utils"
+
 	"github.com/spf13/cobra"
 )
 
 var timeOut int
-var post bool
+var post, view bool
 
 var rootCmd = &cobra.Command{
 	Use:   "385grader",
@@ -18,6 +20,8 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
+	err := rootCmd.Execute()
+	utils.HandleError(err, "Could not execute 385grader.", true)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -32,6 +36,7 @@ func defaultFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("entrypoint", "e", "", "Required: The entrypoint cpp file where they write their name and pledge.")
 	cmd.PersistentFlags().IntVarP(&timeOut, "timeout", "o", 30, "Amount of time in seconds to run test script to completion.")
 	cmd.PersistentFlags().BoolVarP(&post, "post", "p", false, "Whether or not to post the grade and comments to canvas.")
+	cmd.PersistentFlags().BoolVarP(&view, "view", "i", false, "Whether or not view the entrypoint code in an interactive mode.")
 	cmd.PersistentFlags().StringP("valgrind", "g", "", "Path to valgrind input text file.")
 }
 

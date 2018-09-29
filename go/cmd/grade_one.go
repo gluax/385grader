@@ -32,7 +32,7 @@ var gradeOneCmd = &cobra.Command{
 		entrypoint := cmd.Flag("entrypoint").Value.String()
 
 		sub := canvas.FetchOne(cid, aid, uid, token)
-		canvas.GradeOneSubmission(entrypoint, testScript, sub, timeOut, post)
+		canvas.GradeOneSubmission(entrypoint, testScript, sub, timeOut, post, view)
 	},
 }
 

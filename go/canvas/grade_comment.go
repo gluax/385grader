@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -19,28 +20,20 @@ func countNumTests(filepath string) int {
 	reg := regexp.MustCompile("run_test")
 	matches := reg.FindAllStringIndex(utils.Cat(filepath), -1)
 
-	return len(matches)
+	return len(matches) - 1
 }
 
 func (s *assignmentSubmission) getName() []string {
 	resp, err := http.Get(s.NameUrl)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Get request failed. Did API change or network failure or is there service down.", true)
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Could not parse request data, did API schema change?", true)
 
 	var person user
-	if err = json.Unmarshal(body, &person); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	err = json.Unmarshal(body, &person)
+	utils.HandleError(err, "Failed to unpack values to struct.", true)
 
 	name := strings.Split(person.Name, " ")
 	name[0], name[1] = strings.ToLower(name[0]), strings.ToLower(name[1])
@@ -61,7 +54,7 @@ func (s *assignmentSubmission) nameAndPledge(filepath string) (float64, string) 
 
 	if len(matches) == 0 {
 		score += 5
-		comment.WriteString(fmt.Sprintf("%s or %s not found in header comments -5.", name[0], name[1]))
+		comment.WriteString(fmt.Sprintf("\n%s or %s not found in header comments -5.", name[0], name[1]))
 	}
 
 	reg_pledge := regexp.MustCompile("[^a-z1-9]?i pledge my honor that i have abided by the steven(')?s honor system[^a-z1-9]?")
@@ -69,13 +62,14 @@ func (s *assignmentSubmission) nameAndPledge(filepath string) (float64, string) 
 
 	if len(matches) == 0 {
 		score += 5
-		comment.WriteString("Pledge not found/spelt wrong in header comments -5.")
+		comment.WriteString("\nPledge not found/spelt wrong in header comments -5.")
 	}
 
 	return score, comment.String()
 }
 
 func (s *assignmentSubmission) analyzeTestResults(entrypoint, testoutput string, num_tests int) (float64, string) {
+	fmt.Println(num_tests)
 	if s.Missing {
 		return 0, "No Submission."
 	}
@@ -94,7 +88,7 @@ func (s *assignmentSubmission) analyzeTestResults(entrypoint, testoutput string,
 
 	for _, line := range split {
 		if strings.Index(line, "failure") > -1 {
-			comment.WriteString(fmt.Sprintf("%s %.1f\n", line, float64(-1.0)/float64(num_tests)*100))
+			comment.WriteString(fmt.Sprintf("\n%s %.1f\n", line, float64(-1.0)/float64(num_tests)*100))
 			total_score -= float64(1) / float64(num_tests) * 100
 		}
 	}
@@ -102,10 +96,10 @@ func (s *assignmentSubmission) analyzeTestResults(entrypoint, testoutput string,
 	hours := secondsToHours(s.SecondsLate)
 	if hours*2 >= total_score {
 		total_score = 0.0
-		comment.WriteString(fmt.Sprintf("%.1f Hours Late -%.1f", hours, hours*2))
+		comment.WriteString(fmt.Sprintf("\n%.1f Hours Late -%.1f", hours, hours*2))
 	} else if hours > 0 {
 		total_score -= hours * 2
-		comment.WriteString(fmt.Sprintf("%.1f Hours Late -%.1f", hours, hours*2))
+		comment.WriteString(fmt.Sprintf("\n%.1f Hours Late -%.1f", hours, hours*2))
 	}
 
 	if comment.String() == "" {
@@ -151,7 +145,7 @@ func checkFolderStructure(fp string) float64 {
 }
 
 func postGrade(gradeUrl, comment string, score float64) {
-	fmt.Println(gradeUrl)
+	//fmt.Println(gradeUrl)
 	data := grade{
 		Comment: com{
 			TextComment: comment,
@@ -160,28 +154,56 @@ func postGrade(gradeUrl, comment string, score float64) {
 			PostedGrade: fmt.Sprintf("%d", int(score)),
 		},
 	}
+
 	js, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Failed to pack values to struct.", true)
 	client := &http.Client{}
 
 	req, err := http.NewRequest(http.MethodPut, gradeUrl, bytes.NewBuffer(js))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	utils.HandleError(err, "Put request failed. Did API change or network failure or is there service down.", true)
+
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	//fmt.Println(resp)
+	utils.HandleError(err, "Put request failed. Did API change or network failure or is there service down.", true)
+
+	utils.Log(resp, "Grade post response.")
 }
 
-func (s *assignmentSubmission) GradeAndComment(fp, zippath, testpath, entrypoint string, timeout int, post bool) {
+func GradeAllSubmissions(entrypoint, testscript string, subs []*assignmentSubmission, timeout int, post, view bool) {
+	tempDir := utils.CreateTempDir()
+
+	var fp string
+
+	for _, sub := range subs {
+		//fmt.Println(sub.UserID)
+		fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
+
+		utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
+		sub.gradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post, view)
+
+		os.RemoveAll(tempDir)
+
+		err := os.Mkdir(tempDir, 0777)
+		utils.HandleError(err, "Failed to make temp directory.", true)
+	}
+
+	os.RemoveAll(tempDir)
+}
+
+func GradeOneSubmission(entrypoint, testscript string, sub *assignmentSubmission, timeout int, post, view bool) {
+	tempDir := utils.CreateTempDir()
+
+	var fp string
+
+	fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
+
+	utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
+	sub.gradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post, view)
+
+	//os.RemoveAll(tempDir)
+}
+
+func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint string, timeout int, post, view bool) {
 	utils.Unzip(zippath, fp)
 	utils.Cp(testpath, fp)
 	utils.Cd(fp)
@@ -198,17 +220,55 @@ func (s *assignmentSubmission) GradeAndComment(fp, zippath, testpath, entrypoint
 
 	if incorrectStructure > 0 {
 		if score == 100 {
-			comment = "Incorrect folder structure -5."
+			comment = "\nIncorrect folder structure -5."
 		} else {
 			comment += "\nIncorrect folder structure -5."
 		}
 		score -= incorrectStructure
 	}
 
+	if view && score > 0 {
+		var sub float64
+		var exit string
+
+		fmt.Println(utils.Cat(entrypoint))
+		for true {
+			fmt.Printf("Enter amount points to take off: ")
+			fmt.Scanf("%f", &sub)
+			fmt.Printf("Enter comment to go with removed points: ")
+
+			in := bufio.NewReader(os.Stdin)
+			add, _ := in.ReadString('\n')
+
+			for exit != "N" && exit != "Y" {
+				fmt.Printf("Enter another comment(Y/N)?: ")
+				fmt.Scan(&exit)
+			}
+
+			if score == 100 {
+				comment = add
+			} else {
+				comment += "\n" + add
+			}
+			score -= sub
+
+			if exit == "N" {
+				break
+			}
+			exit = ""
+		}
+	}
+
 	if post {
 		postGrade(s.GradeUrl, comment, score)
 	}
-	//fmt.Println(score, comment)
+	data := map[string]interface{}{
+		"id":      s.UserID,
+		"score":   score,
+		"comment": comment,
+	}
+
+	utils.Log(data, "scores and comment.")
 
 	utils.Cd("..")
 }

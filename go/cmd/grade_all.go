@@ -19,7 +19,7 @@ var gradeAllCmd = &cobra.Command{
 		entrypoint := cmd.Flag("entrypoint").Value.String()
 
 		subs := canvas.FetchAllAssignmentUrls(cid, aid, token)
-		canvas.GradeAllSubmissions(entrypoint, testScript, subs, timeOut, post)
+		canvas.GradeAllSubmissions(entrypoint, testScript, subs, timeOut, post, view)
 		return nil
 	},
 }
