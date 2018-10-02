@@ -229,10 +229,12 @@ func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint
 
 	if view && score > 0 {
 		var sub float64
-		var exit string
+		var enter, exit string
 
 		fmt.Println(utils.Cat(entrypoint))
-		for true {
+		fmt.Printf("Remove points and comment(Y)?")
+		fmt.Scanf("%f", &enter)
+		for enter == "Y" {
 			fmt.Printf("Enter amount points to take off: ")
 			fmt.Scanf("%f", &sub)
 			fmt.Printf("Enter comment to go with removed points: ")
@@ -241,7 +243,7 @@ func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint
 			add, _ := in.ReadString('\n')
 
 			for exit != "N" && exit != "Y" {
-				fmt.Printf("Enter another comment(Y/N)?: ")
+				fmt.Printf("Enter another comment/point removal(Y/N)?: ")
 				fmt.Scan(&exit)
 			}
 
