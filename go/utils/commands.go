@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,10 +28,33 @@ func Unzip(filepath, dest string) {
 	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 }
 
-func Make(filepath string) {
-	cmd := exec.Command("make", "-C", filepath)
+func Make() {
+	cmd := exec.Command("make")
 	out, err := cmd.CombinedOutput()
-	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", false)
+}
+
+func ReadValgrindFile(filepath string) []string {
+	var argsList []string
+
+	vfFile, err := os.Open(filepath)
+	defer vfFile.Close()
+	HandleCommandError(err, "", "Failed to open valgrind file.", true)
+
+	scanner := bufio.NewScanner(vfFile)
+	for scanner.Scan() {
+		argsList = append(argsList, scanner.Text())
+	}
+
+	return argsList
+}
+
+func RunValgrind(filepath, args string) string {
+	cmd := exec.Command("valgrind", "--leak-check=yes", filepath, args)
+	out, _ := cmd.CombinedOutput()
+	//HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
+
+	return string(out)
 }
 
 func MakeClean(filepath string) {
@@ -61,7 +85,7 @@ func Mv(from, to string) {
 func RunBashScript(filepath string, timeout int) string {
 	cmd := exec.Command("bash", filepath)
 	out, err := cmd.CombinedOutput()
-	HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
+	HandleCommandError(err, string(out), "Failed to read stdout for command.", false)
 
 	var timer *time.Timer
 	timer = time.AfterFunc(time.Duration(timeout)*time.Second, func() {

@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
-	"os"
 
 	"385grader/utils"
 
@@ -22,10 +20,6 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	utils.HandleError(err, "Could not execute 385grader.", true)
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 }
 
 func defaultFlags(cmd *cobra.Command) {
@@ -38,6 +32,7 @@ func defaultFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVarP(&post, "post", "p", false, "Whether or not to post the grade and comments to canvas.")
 	cmd.PersistentFlags().BoolVarP(&view, "view", "i", false, "Whether or not view the entrypoint code in an interactive mode.")
 	cmd.PersistentFlags().StringP("valgrind", "g", "", "Path to valgrind input text file.")
+	cmd.PersistentFlags().StringP("executable", "x", "", "Name of the executable to valgrind.")
 }
 
 func defaultArgCheck(cmd *cobra.Command, args []string) error {

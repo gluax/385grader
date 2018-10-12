@@ -16,6 +16,39 @@ import (
 	"385grader/utils"
 )
 
+func valgrind(executable, valgrindFile string) (float64, string) {
+	if _, err := os.Stat("./makefile"); os.IsNotExist(err) {
+		return 0.0, ""
+	}
+
+	if _, err := os.Stat("./Makefile"); os.IsNotExist(err) {
+		return 0.0, ""
+	}
+
+	utils.Make()
+
+	var toRemove = 0.0
+	var comment strings.Builder
+	var resp string
+
+	reg := regexp.MustCompile("definitely lost.+\n")
+	lines := utils.ReadValgrindFile(valgrindFile)
+	for _, line := range lines {
+		resp = utils.RunValgrind(executable, line)
+		matches := reg.FindAllStringIndex(resp, -1)
+		start, end := matches[0][0], matches[0][1]
+		lost := resp[start : end-1]
+		parts := strings.Fields(lost)
+
+		if parts[2] != "0" {
+			toRemove += 5
+			comment.WriteString(fmt.Sprintf("\n%s -5", lost))
+		}
+	}
+
+	return toRemove, comment.String()
+}
+
 func countNumTests(filepath string) int {
 	reg := regexp.MustCompile("run_test")
 	matches := reg.FindAllStringIndex(utils.Cat(filepath), -1)
@@ -69,7 +102,6 @@ func (s *assignmentSubmission) nameAndPledge(filepath string) (float64, string) 
 }
 
 func (s *assignmentSubmission) analyzeTestResults(entrypoint, testoutput string, num_tests int) (float64, string) {
-	fmt.Println(num_tests)
 	if s.Missing {
 		return 0, "No Submission."
 	}
@@ -145,7 +177,6 @@ func checkFolderStructure(fp string) float64 {
 }
 
 func postGrade(gradeUrl, comment string, score float64) {
-	//fmt.Println(gradeUrl)
 	data := grade{
 		Comment: com{
 			TextComment: comment,
@@ -169,17 +200,20 @@ func postGrade(gradeUrl, comment string, score float64) {
 	utils.Log(resp, "Grade post response.")
 }
 
-func GradeAllSubmissions(entrypoint, testscript string, subs []*assignmentSubmission, timeout int, post, view bool) {
+func GradeAllSubmissions(entrypoint, testscript, executable, valgrindFile string, subs []*assignmentSubmission, timeout int, post, view bool) {
 	tempDir := utils.CreateTempDir()
 
 	var fp string
 
 	for _, sub := range subs {
-		//fmt.Println(sub.UserID)
+		data := map[string]interface{}{
+			"id": sub.UserID,
+		}
+		utils.Log(data, "Current User Id")
 		fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
 
 		utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
-		sub.gradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post, view)
+		sub.gradeAndComment(tempDir, fp, testscript, entrypoint, executable, valgrindFile, timeout, post, view)
 
 		os.RemoveAll(tempDir)
 
@@ -190,20 +224,19 @@ func GradeAllSubmissions(entrypoint, testscript string, subs []*assignmentSubmis
 	os.RemoveAll(tempDir)
 }
 
-func GradeOneSubmission(entrypoint, testscript string, sub *assignmentSubmission, timeout int, post, view bool) {
+func GradeOneSubmission(entrypoint, testscript, executable, valgrindFile string, sub *assignmentSubmission, timeout int, post, view bool) {
 	tempDir := utils.CreateTempDir()
 
 	var fp string
 
 	fp = filepath.Join(tempDir, fmt.Sprintf("%d.zip", sub.UserID))
-
 	utils.DownloadFileFromUrl(sub.MostRecentSubmission, fp)
-	sub.gradeAndComment(tempDir, fp, testscript, entrypoint, timeout, post, view)
+	sub.gradeAndComment(tempDir, fp, testscript, entrypoint, executable, valgrindFile, timeout, post, view)
 
 	//os.RemoveAll(tempDir)
 }
 
-func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint string, timeout int, post, view bool) {
+func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint, executable, valgrindFile string, timeout int, post, view bool) {
 	utils.Unzip(zippath, fp)
 	utils.Cp(testpath, fp)
 	utils.Cd(fp)
@@ -225,6 +258,11 @@ func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint
 			comment += "\nIncorrect folder structure -5."
 		}
 		score -= incorrectStructure
+	}
+
+	if valgrindFile != "" {
+		execPath := filepath.Join(fp, executable)
+		valgrind(execPath, valgrindFile)
 	}
 
 	if view && score > 0 {
