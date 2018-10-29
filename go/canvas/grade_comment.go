@@ -17,13 +17,13 @@ import (
 )
 
 func valgrind(executable, valgrindFile string) (float64, string) {
-	if _, err := os.Stat("./makefile"); os.IsNotExist(err) {
-		return 0.0, ""
-	}
+	// if _, err := os.Stat("./makefile"); os.IsNotExist(err) {
+	// 	return 0.0, ""
+	// }
 
-	if _, err := os.Stat("./Makefile"); os.IsNotExist(err) {
-		return 0.0, ""
-	}
+	// if _, err := os.Stat("./Makefile"); os.IsNotExist(err) {
+	// 	return 0.0, ""
+	// }
 
 	utils.Make()
 
@@ -40,6 +40,7 @@ func valgrind(executable, valgrindFile string) (float64, string) {
 		lost := resp[start : end-1]
 		parts := strings.Fields(lost)
 
+		fmt.Println("parts[2]", parts[2])
 		if parts[2] != "0" {
 			toRemove += 5
 			comment.WriteString(fmt.Sprintf("\n%s -5", lost))
@@ -262,7 +263,9 @@ func (s *assignmentSubmission) gradeAndComment(fp, zippath, testpath, entrypoint
 
 	if valgrindFile != "" {
 		execPath := filepath.Join(fp, executable)
-		valgrind(execPath, valgrindFile)
+		s, c := valgrind(execPath, valgrindFile)
+		score -= s
+		comment += c
 	}
 
 	if view && score > 0 {

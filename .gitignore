@@ -4,3 +4,8 @@ node_modules
 ~*
 *.json
 temp/*
+/go/temp
+/go/val.txt
+/go/waterjug_val.txt
+/go/log.json
+log.json
