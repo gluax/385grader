@@ -31,16 +31,15 @@ func valgrind(executable, valgrindFile string) (float64, string) {
 	var comment strings.Builder
 	var resp string
 
-	reg := regexp.MustCompile("definitely lost.+\n")
+	reg := regexp.MustCompile("definitely lost: [0-9]+ bytes.+\n")
 	lines := utils.ReadValgrindFile(valgrindFile)
 	for _, line := range lines {
-		resp = utils.RunValgrind(executable, line)
+		resp = utils.RunValgrind(executable, strings.Split(line, " "))
 		matches := reg.FindAllStringIndex(resp, -1)
 		start, end := matches[0][0], matches[0][1]
 		lost := resp[start : end-1]
 		parts := strings.Fields(lost)
 
-		fmt.Println("parts[2]", parts[2])
 		if parts[2] != "0" {
 			toRemove += 5
 			comment.WriteString(fmt.Sprintf("\n%s -5", lost))

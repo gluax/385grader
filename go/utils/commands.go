@@ -49,8 +49,14 @@ func ReadValgrindFile(filepath string) []string {
 	return argsList
 }
 
-func RunValgrind(filepath, args string) string {
-	cmd := exec.Command("valgrind", "--leak-check=yes", filepath, args)
+func RunValgrind(filepath string, args []string) string {
+	var argsn []string
+	argsn = append(argsn, "--leak-check=yes", filepath)
+	for _, arg := range args {
+		argsn = append(argsn, arg)
+	}
+
+	cmd := exec.Command("valgrind", argsn...)
 	out, _ := cmd.CombinedOutput()
 	//HandleCommandError(err, string(out), "Failed to read stdout for command.", true)
 
